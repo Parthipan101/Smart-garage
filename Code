@@ -1,0 +1,92 @@
+#include <Servo.h>    // Library to control the servo motor
+
+// Define pins for ultrasonic sensor
+#define trigPin 9
+#define echoPin 8
+
+// Define pins for other components
+#define SERVO_PIN 10      // Servo motor pin
+#define BUTTON_PIN 7      // Push button pin
+#define LED_PIN 6         // LED pin
+#define BUZZER_PIN 5      // Buzzer pin
+
+// Create a Servo object
+Servo garageServo;
+
+// Variables for distance measurement and garage state
+long duration;
+int distance;
+bool doorOpen = false;  // Keeps track if the door is open or closed
+
+void setup() {
+  pinMode(trigPin, OUTPUT);    // Set trigPin as output
+  pinMode(echoPin, INPUT);     // Set echoPin as input
+  pinMode(BUTTON_PIN, INPUT_PULLUP);  // Set button as input (with internal pullup)
+  pinMode(LED_PIN, OUTPUT);    // Set LED as output
+  pinMode(BUZZER_PIN, OUTPUT); // Set Buzzer as output
+
+  garageServo.attach(SERVO_PIN);  // Attach the servo motor
+  closeGarage();                  // Start with the garage closed
+
+  Serial.begin(9600);  // Initialize serial communication for debugging
+}
+
+void loop() {
+  // Check distance using ultrasonic sensor
+  distance = getUltrasonicDistance();
+
+  // If a car is detected (distance < 20 cm) and door is closed, open the garage
+  if (distance < 20 && !doorOpen) {
+    openGarage();
+  }
+
+  // Read button state for manual control
+  if (digitalRead(BUTTON_PIN) == LOW) {
+    if (doorOpen) {
+      closeGarage();  // If the door is open, close it
+    } else {
+      openGarage();   // If the door is closed, open it
+    }
+    delay(1000);  // Debounce delay for button press
+  }
+
+  delay(500);  // Delay between checks
+}
+
+long getUltrasonicDistance() {
+  // Send a 10us pulse to the trigPin to trigger the sensor
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  // Measure the duration of the echo pulse
+  duration = pulseIn(echoPin, HIGH);
+
+  // Calculate distance in cm (Speed of sound: 34300 cm/s)
+  long distanceCm = duration * 0.034 / 2;
+
+  // Print distance for debugging
+  Serial.print("Distance: ");
+  Serial.print(distanceCm);
+  Serial.println(" cm");
+
+  return distanceCm;
+}
+
+void openGarage() {
+  Serial.println("Opening garage...");
+  garageServo.write(90);      // Rotate servo to 90 degrees (open position)
+  digitalWrite(LED_PIN, HIGH);  // Turn on LED (indicating open)
+  tone(BUZZER_PIN, 1000, 500);  // Beep the buzzer for 500ms
+  doorOpen = true;             // Update the state to open
+}
+
+void closeGarage() {
+  Serial.println("Closing garage...");
+  garageServo.write(0);        // Rotate servo to 0 degrees (closed position)
+  digitalWrite(LED_PIN, LOW);   // Turn off LED (indicating closed)
+  tone(BUZZER_PIN, 500, 500);   // Beep the buzzer for 500ms
+  doorOpen = false;            // Update the state to closed
+}
